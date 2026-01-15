@@ -13,7 +13,13 @@ import { MapScreen } from "@/components/integrity/map-screen"
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("landing")
   const [extractedRecord, setExtractedRecord] = useState<ProjectRecord | null>(null)
-  const [evidenceData, setEvidenceData] = useState<{ metadata: EvidenceMetadata; issues: string[] } | null>(null)
+  
+  // FIX 1: Update state to hold the image
+  const [evidenceData, setEvidenceData] = useState<{ 
+    metadata: EvidenceMetadata; 
+    issues: string[]; 
+    image: string | null // Added image here
+  } | null>(null)
 
   const handleNavigate = (screen: Screen) => {
     setCurrentScreen(screen)
@@ -23,8 +29,9 @@ export default function App() {
     setExtractedRecord(record)
   }
 
-  const handleEvidenceSubmitted = (metadata: EvidenceMetadata, issues: string[]) => {
-    setEvidenceData({ metadata, issues })
+  // FIX 2: Accept the 3rd argument (image) from EvidenceScreen
+  const handleEvidenceSubmitted = (metadata: EvidenceMetadata, issues: string[], image: string) => {
+    setEvidenceData({ metadata, issues, image })
   }
 
   return (
@@ -42,7 +49,14 @@ export default function App() {
         <EvidenceScreen onNavigate={handleNavigate} onEvidenceSubmitted={handleEvidenceSubmitted} />
       )}
 
-      {currentScreen === "audit" && <AuditScreen onNavigate={handleNavigate} projectRecord={extractedRecord} />}
+      {currentScreen === "audit" && (
+        <AuditScreen 
+          onNavigate={handleNavigate} 
+          projectRecord={extractedRecord}
+          // FIX 3: Pass the image to AuditScreen
+          evidenceImage={evidenceData?.image} 
+        />
+      )}
 
       {currentScreen === "map" && <MapScreen onNavigate={handleNavigate} />}
     </main>
