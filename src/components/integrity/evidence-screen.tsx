@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import type { Screen, EvidenceMetadata, IssueCategory } from "@/lib/types"
 
 interface EvidenceScreenProps {
   onNavigate: (screen: Screen) => void
-  onEvidenceSubmitted: (metadata: EvidenceMetadata, issues: string[]) => void
+  onEvidenceSubmitted: (metadata: EvidenceMetadata, issues: string[], image: string) => void
 }
 
 const issueCategories: IssueCategory[] = [
@@ -24,6 +24,9 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [selectedIssues, setSelectedIssues] = useState<string[]>([])
   const [isCapturing, setIsCapturing] = useState(false)
+  
+  // Ref to trigger file input programmatically
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Simulated auto-populated metadata
   const metadata: EvidenceMetadata = {
@@ -35,11 +38,12 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
 
   const handleCapture = useCallback(() => {
     setIsCapturing(true)
-    // Simulate camera capture
+    // Simulate camera capture delay
     setTimeout(() => {
-      setCapturedImage("/road-construction-site-with-incomplete-work.jpg")
+      // FIX: Use a real URL so the demo works immediately without local files
+      setCapturedImage("https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1000&auto=format&fit=crop")
       setIsCapturing(false)
-    }, 500)
+    }, 800)
   }, [])
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,10 +63,18 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
 
   const handleSubmit = useCallback(() => {
     if (capturedImage && selectedIssues.length > 0) {
-      onEvidenceSubmitted(metadata, selectedIssues)
+      // Log for debugging since we aren't using Firebase yet
+      console.log("Submitting Evidence:", {
+        metadata,
+        issues: selectedIssues,
+        image: capturedImage.substring(0, 50) + "..." // Truncate base64 for log
+      })
+      
+      // Pass the image data up so the Audit Screen can see it
+      onEvidenceSubmitted(metadata, selectedIssues, capturedImage)
       onNavigate("audit")
     }
-  }, [capturedImage, selectedIssues, onEvidenceSubmitted, onNavigate])
+  }, [capturedImage, selectedIssues, onEvidenceSubmitted, onNavigate, metadata])
 
   return (
     <div className="min-h-screen bg-foreground text-background pt-20">
@@ -92,11 +104,11 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
           </div>
 
           {/* Main viewfinder area */}
-          <div className="relative h-[50vh] lg:h-full flex items-center justify-center bg-foreground">
+          <div className="relative h-[50vh] lg:h-full flex items-center justify-center bg-foreground overflow-hidden">
             {!capturedImage ? (
               <div className="relative w-full h-full flex items-center justify-center">
                 {/* DSLR viewfinder grid overlay */}
-                <div className="absolute inset-8 pointer-events-none">
+                <div className="absolute inset-8 pointer-events-none z-10">
                   {/* Rule of thirds grid */}
                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
                     {[...Array(9)].map((_, i) => (
@@ -120,13 +132,13 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
                 </div>
 
                 {/* Exposure/focus indicators (non-functional, aesthetic) */}
-                <div className="absolute bottom-12 left-8 flex items-center gap-4 font-mono text-[10px] text-background/40">
+                <div className="absolute bottom-12 left-8 flex items-center gap-4 font-mono text-[10px] text-background/40 z-10">
                   <span>EV +0.0</span>
                   <span>ISO AUTO</span>
                   <span>f/2.8</span>
                 </div>
 
-                <div className="text-center">
+                <div className="text-center z-20">
                   <p className="font-mono text-xs text-background/60 tracking-widest mb-6">AWAITING EVIDENCE CAPTURE</p>
 
                   <div className="flex flex-col items-center gap-4">
@@ -144,16 +156,25 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
                       {isCapturing ? "CAPTURING..." : "CAPTURE EVIDENCE"}
                     </button>
 
-                    <label className="cursor-pointer font-mono text-[10px] text-background/40 underline underline-offset-4 hover:text-background/60">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="cursor-pointer font-mono text-[10px] text-background/40 underline underline-offset-4 hover:text-background/60"
+                    >
                       OR UPLOAD FROM DEVICE
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                    </label>
+                    </button>
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleFileUpload} 
+                      className="hidden" 
+                    />
                   </div>
                 </div>
               </div>
             ) : (
               <div className="relative w-full h-full">
-                {/* Captured image - full bleed, no rounded corners */}
+                {/* Captured image - full bleed */}
                 <img
                   src={capturedImage || "/placeholder.svg"}
                   alt="Captured evidence"
@@ -181,13 +202,13 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
         </div>
 
         {/* Right - Issue Taxonomy */}
-        <div className="w-full lg:w-1/3 bg-secondary border-l border-border p-6 md:p-8">
+        <div className="w-full lg:w-1/3 bg-secondary border-l border-border p-6 md:p-8 overflow-y-auto max-h-[calc(100vh-120px)]">
           <div className="mb-6">
             <h2 className="font-mono text-xs tracking-[0.2em] uppercase text-foreground mb-1">ISSUE CLASSIFICATION</h2>
             <p className="font-mono text-[10px] text-muted-foreground">SELECT ALL APPLICABLE CATEGORIES</p>
           </div>
 
-          {/* Visual taxonomy grid - NOT dropdown */}
+          {/* Visual taxonomy grid */}
           <div className="grid grid-cols-2 gap-2 mb-8">
             {issueCategories.map((category) => {
               const isSelected = selectedIssues.includes(category.id)
@@ -269,20 +290,6 @@ export function EvidenceScreen({ onNavigate, onEvidenceSubmitted }: EvidenceScre
           >
             Submit Field Report
           </button>
-
-          {/* Status indicators */}
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="font-mono text-[10px] text-muted-foreground space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={capturedImage ? "text-accent" : "text-muted-foreground/30"}>■</span>
-                <span>EVIDENCE CAPTURED</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={selectedIssues.length > 0 ? "text-accent" : "text-muted-foreground/30"}>■</span>
-                <span>ISSUES CLASSIFIED</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
